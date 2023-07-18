@@ -1,0 +1,67 @@
+#include <msp430xG46x.h>   ; define controlled include file
+
+         ORG 1100h
+IDF      DW   0,9,3,7,4,2,6,3         
+IDS      DW   0,5,9,7,8,0,0,0
+SIZE     DW   8
+NUM      DW   0
+
+
+        RSEG   CSTACK
+        RSEG   CODE                        ; ORG   0x3100 - place program in 'CODE' segment in to Flash memory
+        
+;------------------------------------------------------------------
+;           function1
+;------------------------------------------------------------------
+
+func     CLR    R6
+L3       DEC    R10
+         JZ     L2
+         PUSH   @R4
+         PUSH   @R5
+         call   #mult 
+         add    #2,SP                      ; clean the stack from index idf 
+         pop    R6                         ; expenditure of the result 
+         ADD    R6,NUM                     ; add to num the result of multipliction
+         INCD   R4                         ; index progress 
+         INCD   R5                         ; index progress
+         JMP    L3                         ; next index and all the pross agian 
+L2       RET                               ; jump to next pc+2 after call #func and clean the stak for good 
+         
+         
+;------------------------------------------------------------------
+;           function2
+;------------------------------------------------------------------        
+
+mult     MOV   2(SP),R6                    ; get @R4 from stack 
+         MOV   4(SP),R7                    ; get @R5 from stack 
+         CLR   R8
+         TST   R6                          ; check if index in idf is zero
+         JZ    endloop        
+         inc   R6                          ; multipliction index idf by indx ids 
+L1       DEC   R6              
+         JZ    endloop        
+         ADD   R7,R8                       ; essay index ids by the number of times idf   
+         JMP   L1 
+endloop  MOV   R8,4(SP)                    ; place the result on stack, instead of R7
+         RET      
+ 
+ 
+;------------------------------------------------------------------
+;            main
+;------------------------------------------------------------------
+Main:  MOV     #SFE(CSTACK),SP              ;init stack pointer
+       MOV     #IDF,R4
+       MOV     #IDS,R5
+       MOV     SIZE,R10
+       call    #func 
+       
+L       JMP   L                            ; infinite loop
+        NOP                                ; to remove warnings
+        
+;-------------------------------------------------------------------------------
+        COMMON  INTVEC                   ; Interrupt Vectors
+;-------------------------------------------------------------------------------
+        ORG     RESET_VECTOR            ; POR, ext. Reset
+        DW      Main
+        END

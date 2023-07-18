@@ -1,0 +1,78 @@
+#include <msp430xG46x.h>     ; define controlled include file
+
+         ORG 1100h
+        
+IDF      DW   0,5,9,7,8,0,0,0         
+IDS      DW   0,9,3,7,4,2,6,3 
+SIZE     DW   8				
+MaxOdd   DS16 8
+
+         RSEG   CSTACK                        ; ORG   0x3100 - place program in 'CODE' segment in to Flash memory
+         RSEG   CODE    
+       
+;-------------------------------------------------------------------------------
+;             function
+;-------------------------------------------------------------------------------
+
+func     MOV    2(SP),R4                 ; R4 = ADDRESS MaxOdd
+         MOV    4(SP),R5                 ; R5 = ADDRESS SIZE 
+         MOV    6(SP),R6                 ; R6 = ADDRESS IDS
+         MOV    8(SP),R7                 ; R7 = ADDRESS IDF
+         MOV    #9,R10                   ; counter for 8 bits
+count    DEC    R10                      ; Loop to count zero
+         JZ     Loop1                    ; after 8 bits, countinue
+         call   #checkodd 
+         INCD   R4                        ; move to the next array index
+         INCD   R6
+         INCD   R7
+         JMP    count
+Loop1    RET
+
+
+;-----------------------------------------------------------------
+;           function2
+;------------------------------------------------------------------  
+
+checkodd MOV   @R7,R11
+         MOV   @R6,R12
+         RRC   R11
+         JNC   L        
+         RRC   R12
+         JNC   MAX         
+         CMP   @R6,0(R7)
+         JGE   MAX
+         MOV   @R6,0(R4)      
+         RET 
+         
+L        RRC   R12
+         JNC   LOOPEND 
+         MOV   @R6,0(R4)      
+         RET 
+         
+MAX      MOV   @R7,0(R4)      
+         RET
+
+LOOPEND  MOV   #0,0(R4)      
+         RET
+          
+   
+;------------------------------------------------------------------
+;            main
+;------------------------------------------------------------------
+
+Main     MOV     #SFE(CSTACK),SP     
+         PUSH    #IDF 
+         PUSH    #IDS
+         PUSH    SIZE
+         PUSH    #MaxOdd  
+         call    #func 
+         ADD     #8,SP  
+      
+ENDL     JMP     ENDL                          ; infinite loop
+         NOP                                   ; to remove warnings
+;-------------------------------------------------------------------------------
+          COMMON  INTVEC                  ; Interrupt Vectors
+;-------------------------------------------------------------------------------
+          ORG     RESET_VECTOR            ; POR, ext. Reset
+          DW      Main
+          END
