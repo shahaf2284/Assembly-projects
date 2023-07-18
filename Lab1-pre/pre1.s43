@@ -1,0 +1,38 @@
+#include <msp430xG46x.h>
+
+
+          ORG 1100h
+IDF       DW   0,9,3,7,4,2,6,3       ;209374263
+IDS       DW   0,5,9,7,8,0,0,0       ;205978000
+SIZE      DW   9
+
+
+          RSEG   CODE 
+Main      MOV   #IDF,R5
+          MOV   #IDS,R6
+          CLR   R7
+          CLR   R4
+          MOV   SIZE,R9
+          MOV   SIZE,R10
+loop1     DEC   R9
+          JZ    loop2
+          ADD   @R5,R7
+          INCD  R5           ; calculate address to R5
+          JMP   loop1
+loop2     DEC   R10
+          JZ    Result 
+          ADD   @R6,R4 
+          INCD  R6           ; calculate address to R6
+          JMP   loop2       
+Result    CMP   R7,R4
+          JGE   L
+          MOV   R7,R4     
+       
+L         JMP   L                            ; infinite loop
+          NOP                                ; to remove warnings
+;-------------------------------------------------------------------------------
+        COMMON  INTVEC                   ; Interrupt Vectors
+;-------------------------------------------------------------------------------
+        ORG     RESET_VECTOR            ; POR, ext. Reset
+        DW      Main
+        END
