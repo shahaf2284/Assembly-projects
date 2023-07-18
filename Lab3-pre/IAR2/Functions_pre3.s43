@@ -1,0 +1,99 @@
+#include  <msp430xG46x.h>
+
+//==============================================================
+                MODULE    I\O
+                PUBLIC    SWread
+                EXTERN    F1,F2,F3,Finish
+                RSEG      CODE
+
+SWread          MOV.B    &P1IN,R5      ;read from input switch
+                CMP      #1,R5
+                JEQ      Fun1
+                CMP      #2,R5
+                JEQ      Fun2
+                CMP      #4,R5
+                JEQ      Fun3
+                JMP      Fun4
+Fun1            CALL     #F1
+                RET
+Fun2            CALL     #F2
+                RET
+Fun3            CALL     #F3
+                RET
+Fun4            CALL     #Finish      
+                RET
+                        
+                ENDMOD 
+//==============================================================
+                MODULE  Functions
+                PUBLIC  F1,F2,F3,Finish
+                EXTERN  Delay1sec,IDSTRING,size
+                RSEG    CODE
+
+           
+F1              MOV.W   #0000,R6   ;count from R6 to R7
+                MOV.W   #0xFFFF,R7
+                MOV.W   R6,&00Ah    ;PBOUT for zero
+CountUp         INC     R6
+                MOV.W   R6,&00Ah    ;PBOUT
+                CALL    #Delay1sec   ;delay of 1sec
+                CMP     R7,R6       ;if the counter==R7 ->stop
+                JNE     CountUp                                                    
+                RET
+                
+F2              MOV.W   #0xFFFF,R7    ;counter start at FFFF
+CountDown       MOV.W   R7,&00Ah      ;PBOUT
+                CALL    #Delay1sec    ;delay of 1sec
+                DEC     R7
+                JNZ     CountDown    ;if counter==0 -> stop
+                MOV.W   R7,&00Ah   ;PBOUT for zero
+                RET
+                
+F3              MOV     #IDSTRING,R8   ;address of the string
+                MOV     STRsize,R9   ;size of string (R9 is the counter)
+                MOV     #0x30,R12      ;to translate ascii to int
+gnext           MOV.B   @R8+,R10   
+                SUB     R12,R10     ;the array is in ascii so we make it number -'x'=30+x
+                DEC     R9          
+                JZ      noMore       ;if counter==0 ->stop
+                CALL    #NumToIndex    ;function to translate number to index
+                MOV.W   R11,&00Ah   ;PBOUT
+                CALL    #Delay1sec
+                JMP     gnext                                                    
+noMore          RET
+
+
+Finish          MOV.W    #0,&00Ah     ;shutdown all leds
+                MOV      #1,R15       ;flag to end program = 1
+                RET
+
+NumToIndex      MOV    #1,R11       ;move 1 and roll left R10 times
+roll            CMP    #0,R10        ;so the number 3 become 8 and it's 
+                JEQ    finito         ; the index for 3 in binary
+                DEC    R10
+                RLA    R11
+                JMP    roll
+finito          RET
+
+
+                ENDMOD
+//==============================================================
+                MODULE  Delay
+                PUBLIC  Delay1sec
+                RSEG    CODE
+            
+           
+Delay1sec       MOV.W   #234,R13       ;delay of 1054179 cyclecounter
+L1              MOV.W   #1500,R14        ;1054719*10^-6 =  1.0056 sec
+L2              DEC.W   R14
+                JNZ     L2
+                DEC.W   R13
+                JNZ     L1                                                         
+                RET
+
+
+            
+            
+                ENDMOD
+//=============================================================            
+                END

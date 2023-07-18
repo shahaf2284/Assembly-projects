@@ -1,0 +1,78 @@
+#include  <msp430xG46x.h>
+
+//==============================================================================          
+
+                MODULE    I\O
+                PUBLIC    SWread
+                EXTERN    F1,F2,F3
+                RSEG      CODE
+                
+                
+SWread          MOV.B    &P1IN,R5      ;read from input switch
+                CMP      #1,R5
+                JEQ      Fun1
+                CMP      #2,R5
+                JEQ      Fun2
+                CMP      #4,R5
+                JEQ      Fun3
+                JMP      Fun4
+Fun1            CALL     #sw1
+                RET
+Fun2            CALL     #sw2
+                RET
+Fun3            CALL     #sw3
+                RET
+Fun4            CALL     #Finish      
+                RET
+                
+//==============================================================================                        
+
+                PUBLIC   sw1,sw2,sw3,Finish,Print
+                EXTERN   ID,SIZE
+                RSEG     CODE
+
+sw1             mov    #0x00,R10              
+                mov    #0xff,R9
+                mov    R10, &00Ah                
+CountUp         inc    R10
+                mov    R10,&00Ah
+                CALL   #Wait                  ; delay of 1sec
+                CMP    R10,R9                 ; if the counter==R7 ->stop
+                JNE    CountUp                                                    
+                RET
+
+sw2             mov    #0xff, R10
+CountDown       mov    R10,&00Ah
+                call   #Wait
+                dec    R10
+                JNE    CountDown
+                MOV.W  R7,&00Ah                ; P2OUT for zero
+                RET
+
+sw3             mov    #0x00,R10
+                mov    SIZE,R9
+                mov    #ID,R4
+
+Print           mov    R7,&00Ah 
+                call   #Wait
+                ADD    #2,R4
+                DEC    R9
+                JNZ    Print
+                RET
+
+Finish          MOV.W    #0x00,&00Ah          ;shutdown all leds
+                MOV      #1,R15               ;flag to end program = 1
+                RET
+                
+//==============================================================================
+                PUBLIC  Wait
+                RSEG    CODE
+               
+Wait            mov.w   #065000,R4          ; Delay to R15, #050000 --> R15
+L               dec.w   R4                  ; Decrement R15
+                jnz     L                  ; Delay over?, jump if not zero(if bit Z in SR isn't zero from the last command
+                RET
+                
+                ENDMOD
+//==============================================================================           
+                END

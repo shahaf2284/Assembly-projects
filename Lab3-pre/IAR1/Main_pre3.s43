@@ -1,0 +1,34 @@
+#include  <msp430xG46x.h>
+;-------------------------------------------------------------------------------          
+           NAME    Main
+           PUBLIC  Main, ID,SIZE
+           EXTERN  SWread
+           
+           ORG 1100h
+ID         DW     0,9,3,7,4,2,6,3,0,5,9,7,8,0,0,0                   
+SIZE       DW     16     
+           
+           RSEG    CSTACK                  
+           RSEG    CODE  
+           
+RESET      mov.w   #SFE(CSTACK),SP
+StopWDT    mov.w   #WDTPW+WDTHOLD,&WDTCTL  
+Main       bis.w   #0xff,&PBDIR              ; P9.0-P9.7 output = #0xff -->M(P9DIR)
+           bic.b   #0x03,&P1DIR              ; P1.0,P1.1 input
+           mov     #0xff,R6                  ; Port 2 (9-10) config for output
+SWset      BIS.B   #0,&P1DIR                 ; Port 1 config for input
+           clr     R15
+           
+MainLoop   call    #SWread
+           CMP     #1,R15                    ; check the flag. if 1 stop
+           JNE     MainLoop                    
+
+
+infinity  JMP     infinity
+          NOP                        ; for debugging    
+;*******************************************************************************
+          COMMON  INTVEC             ;Interrupt Vectors-Begins a common segment INTVEC 
+;*******************************************************************************
+          ORG     RESET_VECTOR     ; MSP430 RESET Vector
+          DW      Main                   
+          END     
