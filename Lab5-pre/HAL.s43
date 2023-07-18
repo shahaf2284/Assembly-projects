@@ -1,0 +1,262 @@
+#include  "bsp.h"
+
+;-------------------------------------------------------------------------------
+;          LCD MACRO function
+;-------------------------------------------------------------------------------
+Pull_3       EQU         1747
+;------------------------------------------------------------------------------- 
+Debounce     MACRO       cycles
+             LOCAL       L
+             mov.w       cycles,R15     
+L            dec.w       R15                     
+             jnz         L
+             ENDM
+;-------------------------------------------------------------------------------               
+             
+Lcd_cmd      MACRO       command
+             Debounce    #Pull_3
+             mov.b       command,&P1OUT 
+             bis.b       #0x20,&P2OUT
+             NOP
+             NOP
+             bic.b       #0x20,&P2OUT
+             ENDM 
+;-------------------------------------------------------------------------------               
+Lcd_char     MACRO       valueTolcd
+             Debounce    #Pull_3
+             mov.b       #0x00,&P1OUT 
+             bis.b       #0x40,&P2OUT
+             mov.b       valueTolcd,&P1OUT 
+             bis.b       #0x20,&P2OUT
+             NOP
+             NOP
+             bic.b       #0x20,&P2OUT
+             bic.b       #0x40,&P2OUT
+             ENDM
+             
+;===============================================================================          
+            
+                MODULE    HAL
+                PUBLIC    TA0_ISR,TA1_TAIV;,TA1_ISR
+                PUBLIC    SystemConfig,PORT2_ISR,Setupstate_1,Setupstate_2,LCDconfig,ReadTA1CCR2
+                EXTERN    GPIOconfig,TIMERconfig1,TIMERconfig2,Stat0
+                EXTERN    flag1,state,flagHz
+                RSEG      CODE
+                
+;===============================================================================                
+;              System Configuration              
+;=============================================================================== 
+SystemConfig    call #GPIOconfig
+                ;call #setup_LCD
+                ret
+                
+;=============================================================================== 
+;              Function
+;===============================================================================               
+
+
+;=============================================================================== 
+;              Port2  Interrupt Service Rourine
+;===============================================================================
+
+PORT2_ISR     bit.b   #0x01,PBsArrIntPend     ; check if PB0 is pushed
+              jnz     P2_0
+              bit.b   #0x02,PBsArrIntPend     ; check if PB1 is pushed
+              jnz     P2_1              
+              reti                            ; interrupt  hapened from anoter source
+
+P2_0          mov     #1,state
+              jmp     exitLPMO
+P2_1          mov     #2,state
+                        
+
+exitLPMO      bic     #CPUOFF,0(SP)     ;EXIT LMPO  
+              bic.b   #0x07,PBsArrIntPend
+              reti
+              nop
+              
+;-------------------------------------------------------------------------------
+;                LCD Setup
+;-------------------------------------------------------------------------------
+
+Setupstate_1     Lcd_cmd #0x01              ; clr lcd
+                 Lcd_cmd #0x02
+                 Lcd_char #48               ; 01:00
+                 Lcd_char #49
+                 Lcd_char #58
+                 Lcd_char #48 
+                 Lcd_char #48  ;#0x30
+                 Lcd_cmd  #0x10 
+                 Lcd_cmd  #0x10 
+                 Lcd_cmd  #0x10 
+                 Lcd_cmd  #0x10 
+                 ret
+Setupstate_2     Lcd_cmd #0x01              ;clr lcd
+                 Lcd_cmd #0x02
+                 Lcd_cmd #0x01              ;Measured frequency:\n
+                 Lcd_cmd #0x02
+                 Lcd_char #77
+                 Lcd_char #101
+                 Lcd_char #97
+                 Lcd_char #115
+                 Lcd_char #117
+                 Lcd_char #114
+                 Lcd_char #101
+                 Lcd_char #100
+                 Lcd_char #27
+                 Lcd_char #102
+                 Lcd_char #114
+                 Lcd_char #101
+                 Lcd_char #113
+                 Lcd_char #117
+                 Lcd_char #101
+                 ;Lcd_char #101
+                 Lcd_char #99
+                 Lcd_char #121
+                 Lcd_char #58
+                 Lcd_cmd #0xC0
+                 ret
+                 
+;-------------------------------------------------------------------------------
+;             LCD functions
+;-------------------------------------------------------------------------------
+
+Lcd_strobe  bis.b  #0x20, &P2OUT
+            nop
+            nop
+            bic.b  #0x20, &P2OUT
+            ret
+            
+
+LCDconfig   bic.b       #0xE0, &P2OUT   ; clear control legs
+            Debounce    #Pull_3
+            mov.b       #0x3F, &P1OUT 
+            call        #Lcd_strobe
+            Debounce    #Pull_3
+            mov.b       #0x3F, &P1OUT 
+            call        #Lcd_strobe
+            Debounce    #Pull_3
+            mov.b       #0x3F, &P1OUT 
+            call        #Lcd_strobe
+            Lcd_cmd     #0x3C
+            Lcd_cmd     #0x3C
+            Lcd_cmd     #0x0F
+            Lcd_cmd     #0x01
+            Lcd_cmd     #0x06
+            Lcd_cmd     #0x80
+            Lcd_cmd     #0x02
+            Lcd_cmd     #0x0C 
+            ret
+            
+;------------------------------------------------------------------------------
+TA0_ISR;    Increment counting 1sec delay
+;------------------------------------------------------------------------------
+              tst.b   flag1          ;check flag1, we need get in 2 time (each for 0.5s)
+              jne     flag1_1
+              xor.b   #0x01,flag1
+              reti
+
+flag1_1       xor.b    #0x01,flag1    
+              clr      R8
+              Lcd_char #48             
+              Lcd_cmd  #0x14
+              add.b    R4,R8
+              add.b    R5,R8
+              cmp      #0,R8
+              jeq      finish
+              add.b    #48,R5
+              add.b    #48,R4
+              Lcd_char R4
+              Lcd_char R5
+              sub.b    #48,R5
+              sub.b    #48,R4
+              cmp      #0,R5
+              jeq      Continued
+              dec.b    R5
+              jmp     next                          
+Continued     mov.b    #9,R5
+              dec.b    R4
+next          Lcd_cmd  #0x10
+              Lcd_cmd  #0x10
+              Lcd_cmd  #0x10
+              Lcd_cmd  #0x10
+              reti
+finish        Lcd_char #48
+              Lcd_char #48
+              mov.b    #0,state
+              mov.w    #MC_0,&TA0CTL               /* Timer A0 mode control: 0 - Stop */ 
+              call     #LCDconfig
+              reti                              
+
+;-------------------------------------------------------------------------------
+TB0_ISR;                 // Timer_B Interrupt Service Routine
+;-------------------------------------------------------------------------------
+
+            add.w   &TB0IV,PC           ; Add Timer_B offset vector
+            reti                        ; Vector 0 - no interrupt
+            jmp     ReadTB0CCR2         ; Vector 2 - TB0CCR1
+            reti                        ; Vector 4 - TB0CCR2
+            reti                        ; Vector 6 - Reserved
+            reti                        ; Vector 8 - Reserved
+T1IFG       tst.b   flagHz              ; Vector 10 -T1IFG Flag 
+            jne     flagHz_1
+            xor.b   #0x01,flagHz
+            reti
+            
+flagHz_1    xor.b #0x01,flagHz     
+            clr   R9                      ;unit
+            clr   R10                     ;dozen
+            clr   R11                     ;100
+            clr   R12                    ;1,000
+            clr   R13                    ;10,000
+overthusond sub   #10000,R8
+            jn    thusond
+            inc.b R13
+            jmp overthusond
+thusond     add #10000,R8
+thusond1    sub #1000,R8
+            jn  hundred
+            inc.b R12
+            jmp thusond1
+hundred     add #1000,R8
+hundred1    sub #100,R8
+            jn  dozen 
+            inc.b R11
+            jmp hundred1  
+dozen       add #100,R8     
+dozen1      sub #10,R8
+            jn  unit 
+            inc.b R10
+            jmp dozen1       
+unit        add #10,R8
+unit1       sub #10,R8
+            jn  final 
+            inc.b R9
+            jmp unit1
+            
+final       add.b #48,R13
+            add.b #48,R12
+            add.b #48,R11
+            add.b #48,R10
+            add.b #48,R9
+            Lcd_cmd #0xC0
+            Lcd_char R13
+            Lcd_char R12    ; the Hz in HEX
+            Lcd_char R11
+            Lcd_char R10
+            Lcd_char R9
+            clr     R8
+            Lcd_char #91
+            Lcd_char #72                  ;*****
+            Lcd_char #122                 ;"Hz: " 
+            Lcd_char #93                  ;****
+            
+            reti                         
+            
+                                        
+ReadTA1CCR2 inc       R8
+            xor.b    #BIT2, &P2OUT
+            reti             
+;===============================================================================
+              ENDMOD
+              END

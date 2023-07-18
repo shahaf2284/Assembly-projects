@@ -1,0 +1,40 @@
+#include   "bsp.h"
+
+           MODULE     api
+           PUBLIC     Oneminute,CheckHz 
+           EXTERN     LCDconfig,Lcd_char,Lcd_cmd,TIMERconfig1,Setupstate_1,Setupstate_2,TIMERconfig2
+          
+                   
+           RSEG CODE
+           
+;   Auxiliary functions         
+;===============================================================================           
+;          get in char data LCD_data
+;=============================================================================== 
+
+;-------------------------------------------------------------------------------
+;             Increment counting 
+;-------------------------------------------------------------------------------
+Oneminute   mov.w   #MC_0,&TBCCTL0   ;shutdown TimerA1 (we dont want interrupt)
+            call    #LCDconfig          ;set LCD ready
+            mov.b   #5,R4
+            mov.b   #9,R5
+            call    #Setupstate_1
+            call    #TIMERconfig1  
+            ret
+ 
+;-------------------------------------------------------------------------------
+;             Check Hz of outside clock
+;-------------------------------------------------------------------------------
+CheckHz      mov.w   #MC_0,&TA0CTL              ;shutdown TimerA0 (we dont want interrupt)
+             
+             clr.w   R8
+             call    #LCDconfig          ;set LCD ready           
+             call    #Setupstate_2
+             call    #TIMERconfig2
+          ;   clr     &TA1R    
+            
+             ret  
+;===============================================================================
+          ENDMOD
+          END

@@ -1,0 +1,60 @@
+#include   "bsp.h"
+
+           NAME      main
+           PUBLIC    RESET,state,flag1,flagHz
+           EXTERN    SystemConfig,PORT2_ISR,State0,CheckHz,Oneminute,TA0_ISR,TB0_TAIV
+
+;===============================================================================
+
+            ORG    1100h            ; Begins a Data segment
+
+flag1       DW      0                 ; for Increment counting  flag 
+state       DW      0                 ; State varible 
+flagHz      DW      0                        ;for chech HZ  flag
+
+;-------------------------------------------------------------------------------
+            
+            RSEG    CSTACK                 
+            RSEG    CODE
+;===============================================================================
+RESET       mov.w   #SFE(CSTACK),SP              ; Initialize stackpointer
+            call    #SystemConfig
+Mainloop    bis.w   #CPUOFF+GIE,SR               ; CPU off, interrupts enabled
+            nop                                  ; Required for debugger
+ 
+
+;----------------FSM_loop-------------------------------------------------------
+             bis.b    #BIT2, &P2DIR
+             bis.b    #BIT2, &P2OUT
+             
+state1       cmp     #1,state                 ;check if state1
+             jnz     state2                                       
+             call    #Oneminute
+             bis.w   #CPUOFF+GIE,SR               ; CPU off, interrupts enabled
+             nop                          
+            
+state2      cmp     #2,state         ;check if state2
+            jnz     Mainloop             
+            call    #CheckHz           ;infinite function            
+            bis.w   #CPUOFF+GIE,SR         
+           
+            jmp     State0
+            nop
+;===============================================================================
+            COMMON  INTVEC   ; Interrupt Vectors-Begins a common segment with name of INTVEC 
+;===============================================================================
+            ORG     RESET_VECTOR            ;RESET Vector Address 0xFFFE - MSP430 REST vector
+            DW      RESET 
+            ORG     TIMERA0_VECTOR        ; TIMERA0 Vector
+            DW      TA0_ISR
+            ORG     TIMERB0_VECTOR           ; Timer_B0 _0_ Vector
+            DW      TB0_ISR  
+           ; ORG     TIMER1_B1_VECTOR          ; Timer_B1 _TIAV_ Vector
+           ; DW      TB1_TAIV
+            ORG     PORT2_VECTOR            ;PORT2 Interrupt Vector
+            DW      PORT2_ISR                   
+            END
+
+
+
+

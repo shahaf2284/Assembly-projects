@@ -1,0 +1,84 @@
+#include  "bsp.h"
+             
+             MODULE BSP
+             PUBLIC GPIOconfig,TIMERconfig1,TIMERconfig2,State0
+
+             RSEG    CODE      ; Assemble to Flash memory -like void main in C
+;===============================================================================
+ 
+GPIOconfig  
+            mov.w   #WDTPW+WDTHOLD,&WDTCTL  
+ ; PushButtons Setup  
+            bic.b   #0xC0, PBsArrPortSEL
+            bic.b   #0x1F, PBsArrPortDir
+            bis.b   #0x0F, PBsArrIntEdeSEL
+            bis.b   #0x03, PBsArrIntEN
+            bic.b   #0x0F, PBsArrIntPend
+            bis.b   #BIT4, PBsArrPortSEL
+                         
+            bic.b   #0xFF, LcdsArrPortSel ;LCDs need to be I/O
+            bis.b   #0xFF, LcdsArrPortDir ;LCD data need to be output
+            bic.b   #0xE0, PBsArrPortSEL ;p2.5-7 GPIO 
+            bis.b   #0xE0, PBsArrPortDir  ;Control Legs for LCD
+            ;Extern Clock Input - P2.3 | x4xx
+               ;bic.b   #0x08, &P2SEL  ;I/0
+               ;bic.b   #0x08, &P2DIR  ;Input 
+            ret
+    
+State0         mov.w   #MC_0,&TA0CTL               /* Timer A mode control: 0 - Stop */ 
+               mov.w   #MC_0,&TACTL                  
+               ret            
+                
+;--------------------------------------------------------------                
+;SetupP1        mov.b   #0x00,&P1SEL           ; set P1.5-7 for lcd control
+;               mov.b   #0xFF,&P1DIR           ;setupLCD 
+               
+;SetupP2        bic.b   #0xE0,&P2SEL                   ; P2 for LCD screen
+;               bic.b   #0x03,&P2DIR                   ; 2.0+2.1 for input
+;               bis.b   #0xE0,&P2DIR
+;               bic.b   #0x80,&P2IES                   ;2.4 for clock input
+;               bis.b   #0x80,&P2IES                   ;2.4 for clock input 
+;               bis.b   #0x03,&P2IE                    ; reset of interrupt flag 
+;               bic.b   #0xFF,&P2IFG                   ; *************** 
+           
+            ;   mov.b   #0,&P1SEL                      ; P2 for LCD screen 
+
+;SetupLCD       bic.b   #0xE0,&P2SEL           ; set P2.5-7 for lcd control
+;               bis.b   #0xE0,&P2DIR           ;setupLCD  
+              ; bis.b   #0xE0,&P2IN            
+               
+;--------------------------------------------------------------
+
+                            
+  
+;===============================================================================
+;            Timers congiguration 
+;===============================================================================
+;------------------------------------------------------------------------------
+
+;------------------------------------------------------------------------------
+TIMERconfig1   mov.w   #0,&TA0R
+               mov.w   #TASSEL_2+MC_1+ID_3,&TA0CTL   ; SMCLK/8 , up mode
+               mov.w   #65535,&TA0CCR0               ; for 0.5 sec delay
+               mov.w   #CCIE,&TA0CCTL0
+               ret
+               
+TIMERconfig2   mov.w   #0,&TAR
+SetupA1        mov.w   #TASSEL_2+MC_2+TAIE+ID_3,&TACTL            ;SMCLK, countinuous mode
+SetupC2        mov.w   #CM_1+SCS+CAP+CCIE,&TACCTL2      ;Capture on rising edges 
+               mov.w   #65535,&TACCR0               ; for 0.5 sec delay
+               mov.w   #CCIE,&TACCTL0
+               ret                             
+                         
+;---------------------------------------------------------------------------------------                  
+     ; COMMON  INTVEC   ; Interrupt Vectors-Begins a common segment name of INTVEC 
+;--------------------------------------------------------------------------------------
+ ;           ORG     PORT2_VECTOR       ;PORT2 Interrupt Vector
+  ;          DW      PORT2_ISR        ; interrupt handler = ISR
+   ;         ORG     RESET_VECTOR       ; MSP430 RESET Vector
+    ;        DW      main  
+;================================================================================            
+             ENDMOD
+             END
+            
+            
