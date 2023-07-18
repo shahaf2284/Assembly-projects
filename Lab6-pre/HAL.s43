@@ -1,0 +1,305 @@
+#include  "bsp.h"
+
+;-------------------------------------------------------------------------------
+;          LCD MACRO function
+;-------------------------------------------------------------------------------
+Pull_3       EQU         1747
+;------------------------------------------------------------------------------- 
+Debounce     MACRO       cycles
+             LOCAL       L
+             mov.w       cycles,R15     
+L            dec.w       R15                     
+             jnz         L
+             ENDM
+;-------------------------------------------------------------------------------               
+             
+Lcd_cmd      MACRO       command
+             Debounce    #Pull_3
+             mov.b       command,&P1OUT 
+             bis.b       #0x20,&P2OUT
+             NOP
+             NOP
+             bic.b       #0x20,&P2OUT
+             ENDM 
+;-------------------------------------------------------------------------------               
+Lcd_char     MACRO       valueTolcd
+             Debounce    #Pull_3
+             mov.b       #0x00,&P1OUT 
+             bis.b       #0x40,&P2OUT
+             mov.b       valueTolcd,&P1OUT 
+             bis.b       #0x20,&P2OUT
+             NOP
+             NOP
+             bic.b       #0x20,&P2OUT
+             bic.b       #0x40,&P2OUT
+             ENDM
+;===============================================================================          
+            
+              MODULE    HAL
+              PUBLIC    SystemConfig,PORT2_ISR,Setupstate_1,LCDconfig,Setupstate_2
+              EXTERN    GPIOconfig
+              EXTERN    state,num
+              RSEG      CODE
+                
+;===============================================================================                
+;              System Configuration              
+;=============================================================================== 
+SystemConfig    call #GPIOconfig
+                ;call #setup_LCD
+                ret
+                
+;=============================================================================== 
+;              Function
+;===============================================================================               
+FREQ          mov    R7, R5
+              clr    R10
+              call   #Tree
+              Lcd_cmd #0xC0
+              Lcd_cmd #0x10
+              Lcd_cmd #0x10
+              Lcd_cmd #0x10
+              Lcd_cmd #0x10
+              Lcd_cmd #0x10
+              mov    R8, R5
+              call   #Tree
+              mov     0x03FF,R7                 ; Vmin 
+              clr     R8                 ; Vmax
+              mov     #10000,R4
+              bis.w   #ADC12SC,&ADC12CTL0   ;Start sampling/conversion
+              reti
+              
+Tree          mov     R5,R4
+again         cmp     num,R4 
+              JN      printer
+              sub.b   num,R4
+              inc     R10
+              jmp     again
+azovazov1     mov     R5,R4
+              call    #10times
+              mov     R5,R4
+again_1       cmp     num,R4 
+              JN      printer1
+              sub.b   num,R4
+              inc     R10
+              jmp     again_1
+              
+azovazov2     mov     R5,R4
+              call    #10times
+              mov     R5,R4             
+again_2       cmp     num,R4 
+              JN      printer2
+              sub.b   num,R4
+              inc     R10
+              jmp     again_2             
+endloop       ret
+              
+                
+printer       add.b    #48,R10
+              lcd_char R10
+              Lcd_cmd  #0x10
+              clr      R10
+              jmp      azovazov1
+              
+printer1      cmp      #9,R10
+              jn       print
+              lcd_char #48
+              jmp      shalom
+print         add.b    #48,R10
+              lcd_char R10
+shalom        clr      R10
+              jmp      azovazov2
+              
+printer2      cmp      #9,R10
+              jn       print2
+              lcd_char #48
+              jmp      sharon
+print2        add.b    #48,R10
+              lcd_char R10
+sharon        clr      R10
+              jmp      endloop
+
+10times       mov     #9,R13
+              add     R4,R5
+              dec     R13
+              cmp     #0,R13 
+              JNQ     10times
+              ret
+             
+             
+DIV           mov     #9,R4
+div_by_2      RRA     R7
+              RRC     R8
+              clrc   
+              dec     R4
+              cmp     #0,R4 
+              JNQ     div_by_2
+              mov     R8, R5
+              clr     R10
+              call    #Tree
+              clr     R7                 ; MSB 
+              clr     R8                 ;LSB
+              mov     #1024,R4
+              bis.w   #ADC12SC,&ADC12CTL0   ;Start sampling/conversion
+              reti         
+             
+
+;=============================================================================== 
+;              Port2  Interrupt Service Rourine
+;===============================================================================
+
+PORT2_ISR     bit.b   #0x01,PBsArrIntPend     ; check if PB0 is pushed
+              jnz     P2_0
+              bit.b   #0x02,PBsArrIntPend     ; check if PB1 is pushed
+              jnz     P2_1 
+              reti                            ; interrupt  hapened from anoter source
+
+P2_0          mov     #1,state
+              jmp     exitLPMO
+P2_1          mov     #2,state
+                        
+
+exitLPMO      bic     #CPUOFF,0(SP)     ;EXIT LMPO  
+              bic.b   #0x07,PBsArrIntPend
+              reti
+              nop
+              
+;-------------------------------------------------------------------------------
+;                LCD Setup
+;-------------------------------------------------------------------------------
+
+Setupstate_1     Lcd_cmd #0x01              ; clr lcd
+                 Lcd_cmd #0x02
+                 Lcd_char #86               ; Vmin=
+                 Lcd_char #109              
+                 Lcd_char #105
+                 Lcd_char #110 
+                 Lcd_char #61
+                 Lcd_char #48
+                 Lcd_char #46
+                 Lcd_char #48
+                 Lcd_char #48
+                 Lcd_char #91
+                 Lcd_char #118
+                 Lcd_char #93
+                 lcd_char #0xC0
+                 Lcd_char #86               ; Vmax=
+                 Lcd_char #109 
+                 Lcd_char #97
+                 Lcd_char #120
+                 Lcd_char #61
+                 Lcd_char #48
+                 Lcd_char #46
+                 Lcd_char #48
+                 Lcd_char #48
+                 Lcd_char #91
+                 Lcd_char #118
+                 Lcd_char #93
+                 Lcd_cmd #0x02
+                 Lcd_cmd #0x10
+                 Lcd_cmd #0x10
+                 Lcd_cmd #0x10
+                 Lcd_cmd #0x10
+                 Lcd_cmd #0x10
+                 ret
+                 
+                 
+Setupstate_2     Lcd_cmd #0x01              ; clr lcd
+                 Lcd_cmd #0x02                
+                 Lcd_char #86               ; Vavg=  
+                 Lcd_char #97
+                 Lcd_char #118
+                 Lcd_char #103
+                 Lcd_char #61
+                 Lcd_char #48
+                 Lcd_char #46
+                 Lcd_char #48
+                 Lcd_char #48
+                 Lcd_char #91
+                 Lcd_char #118
+                 Lcd_char #93
+                 Lcd_cmd #0x02
+                 Lcd_cmd #0x10
+                 Lcd_cmd #0x10
+                 Lcd_cmd #0x10
+                 Lcd_cmd #0x10
+                 Lcd_cmd #0x10
+                 ret
+                 
+;-------------------------------------------------------------------------------
+;             LCD functions
+;-------------------------------------------------------------------------------
+
+Lcd_strobe  bis.b  #0x20, &P2OUT
+            nop
+            nop
+            bic.b  #0x20, &P2OUT
+            ret
+            
+LCDconfig
+            bic.b       #0xE0, &P2OUT   ; clear control legs
+            Debounce    #Pull_3
+            mov.b       #0x3F, &P1OUT 
+            call        #Lcd_strobe
+            Debounce    #Pull_3
+            mov.b       #0x3F, &P1OUT 
+            call        #Lcd_strobe
+            Debounce    #Pull_3
+            mov.b       #0x3F, &P1OUT 
+            call        #Lcd_strobe
+            Lcd_cmd     #0x3C
+            Lcd_cmd     #0x3C
+            Lcd_cmd     #0x0F
+            Lcd_cmd     #0x01
+            Lcd_cmd     #0x06
+            Lcd_cmd     #0x80
+            Lcd_cmd     #0x02
+            Lcd_cmd     #0x0C   
+            ret
+            
+;------------------------------------------------------------------------------
+ADC12_ISR;    Increment counting 
+;------------------------------------------------------------------------------
+            cmp         #1,state
+            jeq         state_1
+            cmp         #2,state
+            jeq         state_2
+state_1     nop       
+Start_sp1   dec         R4
+            cmp         &ADC12MEM3,R8           //if r8 -Vsample <0 
+            jl          Vmax  
+next        cmp         &ADC12MEM3,R7            //IF R7-Vsample >0
+            jge         Vmin
+next2       cmp         #0,R4  
+            jeq         FREQ   
+            bis.w       #ADC12SC,&ADC12CTL0   ;Start sampling/conversion
+            reti
+            
+Vmax        mov.b      &ADC12MEM3,R8  
+            jmp next  
+Vmin        mov.b      &ADC12MEM3,R7 
+            jmp next2
+
+
+            
+
+;===============================================================================
+            
+state_2     nop
+Start_sp2   dec        R4
+            add        &ADC12MEM3,R8  
+            jc         Carry
+Car         cmp        #0, R4
+            jeq        DIV_1
+            bis.w      #ADC12SC,&ADC12CTL0   ;Start sampling/conversion
+            reti
+            
+Carry       inc        R7
+            clrc  
+            jmp        Car
+            
+   
+DIV_1       call       #DIV
+
+;===============================================================================
+              ENDMOD
+              END

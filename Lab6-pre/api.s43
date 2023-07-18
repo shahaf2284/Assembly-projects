@@ -1,0 +1,38 @@
+#include   "bsp.h"
+
+           MODULE     api
+           PUBLIC     CheckV,ChecAVG  
+           EXTERN     LCDconfig,TIMERconfig1,Setupstate_1,Setupstate_2
+          
+                   
+           RSEG CODE
+           
+;   Auxiliary functions         
+;===============================================================================           
+;          get in char data LCD_data
+;=============================================================================== 
+
+;-------------------------------------------------------------------------------
+;         Check V MIN/MAX
+;-------------------------------------------------------------------------------
+CheckV      call    #LCDconfig          ; set LCD ready
+            call    #Setupstate_1
+            mov     0x03FF,R7                 ; Vmin 
+            clr     R8                 ; Vmax
+            mov.b   #10000,R4         ; Counter Until 10000 time sempling 
+            bis.w   #ADC12SC,&ADC12CTL0   ;Start sampling/conversion
+            ret
+            
+ChecAVG     call    #LCDconfig          ; set LCD ready
+            call    #Setupstate_2
+            clr     R7                 ; MSB 
+            clr     R8                 ;LSB
+            mov.b   #1024,R4         
+            bis.w   #ADC12SC,&ADC12CTL0   ;Start sampling/conversion
+            ret
+ 
+             
+             
+;===============================================================================
+          ENDMOD
+          END

@@ -1,0 +1,43 @@
+#include  "bsp.h"
+             
+             MODULE BSP
+             PUBLIC GPIOconfig,TIMERconfig1,TIMERconfig2,State0,TIMERconfig3
+
+             RSEG    CODE      ; Assemble to Flash memory -like void main in C
+;===============================================================================
+ 
+GPIOconfig  
+            mov.w   #WDTPW+WDTHOLD,&WDTCTL  
+            ; PushButtons Setup  
+            bic.b   #0xC0, &P1SEL
+            bic.b   #0x03, &P1DIR
+            ;bic.b   #0x07, &P1DIR
+            bis.b   #0x0F, &P1IES
+            bis.b   #0x03, &P1IE
+            bic.b   #0x0F, &P1IFG
+            bis.b   #BIT4, &P1SEL
+            bic.b   #0xFF, &P2SEL            ; LCDs need to be I/O
+            bis.b   #0xFF, &P2DIT            ; LCD data need to be output
+            bic.b   #0xE0, &P1SEL            ; p1.5-7 GPIO 
+            bis.b   #0xE0, &P1DIR           ; Control Legs for LCD
+            bis.b   #0x08, &P6SEL           ; I/0
+            bic.b   #0x08, &P6DIR           ; Input 
+            
+Modadc12    mov.w   #SHT0_2+ADC12ON,&ADC12CTL0  ;Sampling time, adc12 on  
+            mov.w   #SHP+CSTARTADD_3,&ADC12CTL1  
+            mov.b   #INCH_3,&ADC12MCTL3         ;ANALOG input is A3, VR+=3.3v VR-=0v
+            mov.w   #0x08,&ADC12IE              ;enable interrupt
+            bis.w   #ENC,&ADC12CTL0
+            bis.b   #0x08,&P6SEL                ;P6.3 ADC option select 
+            ret
+    
+ 
+  
+;===============================================================================
+;            Timers congiguration 
+;===============================================================================
+;================================================================================            
+             ENDMOD
+             END
+            
+            

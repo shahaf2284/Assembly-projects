@@ -1,0 +1,66 @@
+#include   "bsp.h"
+
+           NAME      main
+           PUBLIC    RESET,state, num
+           EXTERN    SystemConfig,CheckV,CheckAVG
+
+;===============================================================================
+
+            ORG    0x200             ; Begins a Data segment
+ 
+num         DW     1241              ; (3.3/(2^(12)-1) = 1241
+
+;-------------------------------------------------------------------------------
+            RSEG    CSTACK                 
+            RSEG    CODE
+;===============================================================================
+RESET       mov.w   #SFE(CSTACK),SP              ; Initialize stackpointer
+            call    #SystemConfig
+Mainloop    bis.w   #CPUOFF+GIE,SR               ; CPU off, interrupts enabled
+            nop                                  ; Required for debugger
+ 
+
+;----------------FSM_loop-------------------------------------------------------
+             bis.b    #BIT2, &P2DIR
+             bis.b    #BIT2, &P2OUT
+             
+state1       cmp     #1,state         ;check if state1
+             jnz     state2                                       
+             call    #CheckV
+             bis.w   #CPUOFF+GIE,SR               ; CPU off, interrupts enabled
+             nop                          
+            
+state2      cmp     #2,state         ;check if state2
+            jnz     state0                                      
+            call    #CheckAVG
+            bis.w   #CPUOFF+GIE,SR               ; CPU off, interrupts enabled
+            nop 
+            
+
+           
+state0      jmp     Mainloop
+            nop
+;===============================================================================
+            COMMON  INTVEC   ; Interrupt Vectors-Begins a common segment with name of INTVEC 
+;===============================================================================
+            ORG     RESET_VECTOR            ;RESET Vector Address 0xFFFE - MSP430 REST vector
+            DW      RESET 
+            ORG     ADC12_VECTOR          ; ADC12 Vector
+            DW      ADC12_ISR
+                
+            END
+
+
+
+ ;
+Mainloop bis.w #CPUOFF,SR ; CPU off
+ nop ; Required only for debugger
+;---------------------------------------------------------------------------------------------------------
+ COMMON INTVEC ; Interrupt Vectors
+;---------------------------------------------------------------------------------------------------------
+ ORG RESET_VECTOR ; MSP430 RESET Vector
+ DW RESET
+ END
+
+
+
